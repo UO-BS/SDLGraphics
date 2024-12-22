@@ -1,0 +1,24 @@
+Idea to ponder:
+
+Seperating rendering and game logic.
+Right now all game logic and rendering is on same thread in MainWindow().
+
+If we run on seperate threads;
+- graphics would need a map object to render?
+- this map would need to be protected by mutex
+- for movement animations: graphics would need queue to contain each move
+- logic would need a queue for actions taken by the user in the GUI
+	- these could become invalid after an action earlier in the queue
+- graphics would play idle animations until an action arrives in its queue
+- So graphics would need: previous map, new map, and action for each new move
+	- I guess: play animation on old map, then reload with new map (to ensure)
+- each queue would need a mutex
+- Problem with overlays: how does it grab info (it would need mutex somehow)
+	-solution: overlay info comes from map which is already protected by mutex
+
+
+
+Anyways:
+
+first we need to setup rotatable board
+also need to setup overlay layering system
