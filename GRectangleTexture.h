@@ -5,6 +5,12 @@
 #include "GVector.h"
 #include "GMatrix.h"
 
+// This class represents a 2D Texture (rectangular shape)
+
+// A simple rectangle has 4 vertices (the corners), but this class was created for the situation in which we may need more vertices;
+// Specifically, we approximate a Projective Transformation using Affine, which requires subdividing the rectangle into more vertices.
+// The textureId is for holding an indentifier of what texture to use when displaying
+
 class GRectangleTexture
 {
 public:
@@ -17,7 +23,6 @@ public:
     int subdivisionCount;
     int textureID;
     std::vector<GVector<2>> vertices;
-
 
     //constructors
     GRectangleTexture(int srcHeight, int srcWidth, int textureID);

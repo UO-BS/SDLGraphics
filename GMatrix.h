@@ -12,7 +12,7 @@ class GMatrix
 {
 public:
 
-    // The GMatrix is columns of Vectors. GMatrix<4,4>[4] is the first row second column.
+    // The GMatrix is columns of Vectors (column-major). GMatrix<4,4>[4] is the first-row second-column.
     std::array<float,R*C> data;
 
     //0 Matrix
@@ -75,7 +75,7 @@ public:
         if (R != C) {
             throw std::invalid_argument ("Inverse requires square matrix");
         } else {
-            int det = getDeterminant(*this,R);
+            float det = getDeterminant(*this,R);
             if (det==0){
                 std::invalid_argument e("Determinant is 0, no inverse possible");
                 throw e;
@@ -110,38 +110,50 @@ public:
         } 
 
         GMatrix<R,C> solution{};
-        GMatrix<R-1,C-1> subVect{};
+        GMatrix<R-1,C-1> subMat{};
 
+        // In the following block of code, 
+        // j refers to the column of the original matrix, i refers to the row of the original matrix             --- Used for keeping track of which matrix minor we are calculating
+        // pO refers to the column of the original matrix, qO refers to the row of the original matrix           --- Used for indexing the original matrix
+        // pS refers to the column of the generated sub-matrix, qS refers to the row of the generated sub-matrix --- Used for indexing the sub-matrix
+        
+        // Loop through every element of the original matrix to find the minor value
         for(std::size_t i = 0; i < R; i++) {
             for(std::size_t j = 0; j < C; j++) {
 
-                int p = 0;
-                for(size_t x = 0; x < R; x++) {
-                    if(x == i) {
-                        continue;
+                int pS = 0;
+                for(size_t pO = 0; pO < C; pO++) { // Loop through every column
+                    if(pO == j) {
+                        continue; // Skip the minor's column (doesnt increment pS)
                     }
-                    int q = 0;
+                    int qS = 0;
 
-                    for(size_t y = 0; y < R; y++) {
-                        if(y == j) {
-                            continue;
+                    for(size_t qO = 0; qO < R; qO++) { // Loop through every row
+                        if(qO == i) {
+                            continue; // Skip the minor's row (doesnt increment qS)
                         }
 
-                        subVect[p*(R-1) +q] = this->data[x*R +y];
-                        q++;
+                        subMat[pS*(R-1) +qS] = this->data[pO*C +qO];
+                        qS++;
                     }
-                    p++;
+                    pS++;
                 }
-                solution[i*R +j] = pow(-1, i + j) * getDeterminant(subVect,R-1);
+
+                // Calculate the minor value and store it in "solution"
+                solution[j*C +i] = pow(-1, i + j) * getDeterminant(subMat,R-1);
+                // Clear sub-matrix values (possible optimization: clear only the skipped row/column of next loop; the others will be overwritten)
+                for (int clear=0;clear<(R-1)*(C-1);clear++) {subMat[clear]=0;}
             }
         }
         return solution;
     }
 
-    // Recursive function to find determinant of a matrix
+    // Function to find determinant of a matrix using Gaussian elimination and a series of transformations that reduce the matrix to upper triangular form
+    // Based on: https://www.geeksforgeeks.org/dsa/determinant-of-a-matrix/  
+    //     - although slightly different: I use floats, and the "index" and "i" variable are different (it seems the tutorial uses row-major)
     // n must be equal to A for a useful result. So for a 3x3 matrix, n=3
     template <size_t A, size_t B>
-    static int getDeterminant(GMatrix<A,B> mat, int n)
+    static float getDeterminant(GMatrix<A,B> mat, int n)
     {
         if (A != B) {
             throw std::invalid_argument ("determinant requires square matrix");
@@ -150,58 +162,56 @@ public:
             throw std::invalid_argument ("Invalid n value. n is too large (n > dimension of matrix)");
         }
         // Initialize result
-        int num1, num2, det = 1, index, total = 1;
+        float num1, num2, total = 1, det = 1;
+        int index;
         // Temporary array for storing row
-        int temp[n + 1];
+        float temp[n + 1]{};
         // Loop for traversing the diagonal elements
-        for (int i = 0; i < n; i++)
+        for (int i = 0; i < n; i++) // Note i represents the matrix diagonal; (0,0) (1,1) (2,2) etc...
         {
             // Initialize the index
-            index = i;
+            index = i; // Note: index represents the row number
             // Finding the index which has non zero value
-            while (index < n && mat[index*n +i] == 0){index++;}
+            while (index < n && mat[i*n +index] == 0){index++;}
     
-            // if there is non zero element
+            // if there is no non zero element in the first column
             if (index == n)
             {
-                // the determinant of matrix as zero
-                continue;
+                continue; // the determinant of matrix is zero
             }
             if (index != i)
             {
                 // Loop for swapping the diagonal element row and index row
-                for (int j = 0; j < n; j++)
+                for (int j = 0; j < n; j++) // Note: j represents the column number
                 {
                     //Perform swap
-                    float temp = mat[i*n +j];
-                    mat[i*n +j] = mat[index*n +j];
-                    mat[index*n +j] = temp;
+                    float swapTemp = mat[j*n + i];
+                    mat[j*n + i] = mat[j*n + index];
+                    mat[j*n + index] = swapTemp;
                 }
     
-                // Determinant sign changes when we shift rows go through determinant properties
+                // Determinant sign changes when we shift rows
                 det = det * pow(-1, index - i);
             }
     
             // Storing the values of diagonal row elements
-            for (int j = 0; j < n; j++)
+            for (int j = 0; j < n; j++) // Note: j represents the column number
             {
-                temp[j] = mat[i*n +j];
+                temp[j] = mat[j*n +i];
             }
     
             // Traversing every row below the diagonal element
-            for (int j = i + 1; j < n; j++)
+            for (int bRow = i + 1; bRow < n; bRow++) // Note: bRow represents the row number
             {
-                // Value of diagonal element
-                num1 = temp[i];
+                
+                num1 = temp[i]; // Value of diagonal element
+                num2 = mat[i*n +bRow]; // Value of next row (elements directly below num1)... Elements in the same column as the diagonal element
     
-                // Value of next row element
-                num2 = mat[j*n +i];
-    
-                // Traversing every column of row and multiplying to every row
-                for (int k = 0; k < n; k++)
+                // Traversing every column of the row and multiplying
+                for (int k = 0; k < n; k++) // Note: k represents the column number
                 {
-                    // Multiplying to make the diagonal element and next row element equal
-                    mat[j*n +k] = (num1 * mat[j*n +k]) - (num2 * temp[k]);
+                    // Multiplying to make the diagonal element (num1) and next row element (num2) equal... And then subtracting to make next row element zero
+                    mat[k*n + bRow] = (num1 * mat[k*n + bRow]) - (num2 * temp[k]);
                 }
                 total = total * num1; // Det(kA)=kDet(A);
             }

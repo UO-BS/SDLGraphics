@@ -6,7 +6,7 @@ and may not be redistributed without written permission.*/
 #include <cmath>
 #include "GMatrix.h"
 #include "GRectangleTexture.h"
-#include "GGraphicalComponent.h"
+#include "WorldObject.h"
 
 
 MainWindow::MainWindow(std::string windowName)
@@ -15,11 +15,15 @@ MainWindow::MainWindow(std::string windowName)
 	{
 		printf( "Failed to initialize!\n" );
 	} else {
-		if(displayMedia("red.bmp" ) == -1 || displayMedia("blue.bmp" ) == -1 || displayMedia("green.bmp" ) == -1 || !displayMedia("clueless.bmp" ))
+		// Load all textures (since there are so few right now)
+		if( textureSet.findOrLoadTexture("red.bmp" ) == -1 || 
+			textureSet.findOrLoadTexture("blue.bmp" ) == -1 || 
+			textureSet.findOrLoadTexture("green.bmp" ) == -1 || 
+			textureSet.findOrLoadTexture("clueless.bmp" ) == -1)
 		{
 			printf( "Failed to load media!\n" );
 		}
-		else
+		else // Successfully loaded textures
 		{	
 			//Main loop flag
 			bool quit = false;
@@ -27,12 +31,9 @@ MainWindow::MainWindow(std::string windowName)
 			//Event handler
 			SDL_Event e;
 
+			// Camera details
+			WorldObject cameraDetails = WorldObject{GMatrix<4,4>{std::array<float,16>{1,0,0,0,0,1,0,0,0,0,1,0,0,0,-800,1}}, GGraphicalComponent{}};
 
-			float temp=1.0;
-			float sign=1.0;
-
-			float xKeyboard=0.0;
-			float yKeyboard=0.0;
 			//While application is running
 			while( !quit )
 			{
@@ -45,66 +46,113 @@ MainWindow::MainWindow(std::string windowName)
 						quit = true;
 					}
 					else if( e.type == SDL_KEYDOWN ){
+						
+
 						switch( e.key.keysym.sym ){
 							case SDLK_UP:
-								printf( "UP\n" );
-								xKeyboard+=2;
+								printf( "Up\n" );
+								cameraDetails.pos.rotate(-2,0,0);
 								break;
 							case SDLK_DOWN:
 								printf( "Down\n" );
-								xKeyboard-=2;
+								cameraDetails.pos.rotate(2,0,0);
 								break;
+
 							case SDLK_LEFT:
 								printf( "Left\n" );
-								yKeyboard+=2;
+								cameraDetails.pos.rotate(0,-2,0);
 								break;
 							case SDLK_RIGHT:
 								printf( "Right\n" );
-								yKeyboard-=2;
+								cameraDetails.pos.rotate(0,2,0);
+								break;
+
+							case SDLK_w:
+								printf( "w\n" );
+								cameraDetails.pos.translate(GVector<3>{0,0,10}, false);
+								break;
+							case SDLK_a:
+								printf( "a\n" );
+								cameraDetails.pos.translate(GVector<3>{-10,0,0}, false);
+								break;
+							case SDLK_s:
+								printf( "s\n" );
+								cameraDetails.pos.translate(GVector<3>{0,0,-10}, false);
+								break;
+							case SDLK_d:
+								printf( "d\n" );
+								cameraDetails.pos.translate(GVector<3>{10,0,0}, false);
 								break;
 						}
 
 					}
 				}
 
+				std::cout << cameraDetails.pos.getWorldPosition() << "\n";
+
 				//Clear screen
 				SDL_RenderClear( gRenderer );
 
-				//HERE: ISSUES WITH CAMERA ROTATION. COULD BE BECAUSE OF BOGUS SCALING (SEE *20 AFTER PROJECTION) ________________________________________________________________________________
+				//HERE: ISSUES WITH CAMERA ROTATION.
 				//https://stackoverflow.com/questions/60561455/how-do-i-rotate-my-camera-correctly-in-my-3d-world
-				//https://www.youtube.com/watch?v=cd2dnF4eelg 
 				//https://www.3dgep.com/understanding-the-view-matrix/  
+				//https://stackoverflow.com/questions/724219/how-to-convert-a-3d-point-into-2d-perspective-projection
+				//https://gamedev.stackexchange.com/questions/178643/the-view-matrix-finally-explained
 
 				//To Do: 
-				// - Fix the "blowing up" when textures go off screen
+				// - Fix objects behind camera appearing anyway (but flipped) ... SDL clips by default when texture goes off screen, but not when behind?
 				// - change warpTextureBySubdivision name and variable names to reflect new purpose
 				// - fix the rectangle image issue. By setting the correct dimensions in GRectangleTexture, it always gives a square... Entering square dimension: gives correct
-				// - Fix the fact that changing the camera quaternion rotates the world and not the camera
-				// - Fix the arbitrary *20 in warpTextureBySubdivision
+				// - Make a PI constnat
 
-				// Camera details
-				GMatrix<4,4> cameraDetails = GMatrix<4,4>{std::array<float,16>{1,0,0,0,0,1,0,0,0,0,1,0,0,0,200,1}};
-				// Rotating the camera using a quaternion 4x4 matrix
-				GQuaternion cameraQuat{0.0f+xKeyboard,0.0f+yKeyboard,0.0f};
-				cameraDetails *= cameraQuat.get4RotMat();
 
 				// Main image
-				GGraphicalComponent mainObject = GGraphicalComponent{};
-				mainObject.addTexturePiece(GRectangleTexture{676,983,3,2},GMatrix<4,4>{std::array<float,16>{1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1}});
-				for (size_t i=0;i<mainObject.textures.size();i++) {
-					std::pair<std::vector<SDL_Vertex>,std::vector<int>> warp = warpTextureBySubdivision(mainObject.getTextures()[i], mainObject.getTextureTruePosRot()[i], cameraDetails);
-					SDL_RenderGeometry(gRenderer, gTextures[mainObject.textures[i].getTextureID()], warp.first.data(), (int)warp.first.size(), warp.second.data(), (int)warp.second.size());
+				WorldObject mainObject = WorldObject{};
+				mainObject.graphics.addTexturePiece(GRectangleTexture{676,983,textureSet.findOrLoadTexture("clueless.bmp"),2},GMatrix<4,4>{std::array<float,16>{1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1}});
+				for (size_t i=0;i<mainObject.graphics.textures.size();i++) {
+					std::pair<std::vector<SDL_Vertex>,std::vector<int>> warp = warpTextureBySubdivision(mainObject.graphics.getTextures()[i], mainObject.getTextureTruePosRot()[i], cameraDetails.pos.getWorldPosition());
+					SDL_RenderGeometry(gRenderer, 
+										textureSet.getTexture(mainObject.graphics.textures[i].getTextureID()),
+										warp.first.data(), 
+										(int)warp.first.size(), 
+										warp.second.data(), 
+										(int)warp.second.size());
 				}
 
+				/*
 				// The 3 directional pointers
-				GGraphicalComponent directionalPointers = GGraphicalComponent{};
-				directionalPointers.addTexturePiece(GRectangleTexture{100,10,0,2}, GMatrix<4,4>{std::array<float,16>{1,0,0,0,0,0,1,0,0,1,0,0,0,0,0,1}});
-				directionalPointers.addTexturePiece(GRectangleTexture{100,10,1,2}, GMatrix<4,4>{std::array<float,16>{0,0,-1,0,0,1,0,0,1,0,0,0,0,0,0,1}});
-				directionalPointers.addTexturePiece(GRectangleTexture{100,10,2,2}, GMatrix<4,4>{std::array<float,16>{0,1,0,0,-1,0,0,0,0,0,1,0,0,0,0,1}});
-				for (size_t i=0;i<directionalPointers.textures.size();i++) {
-					std::pair<std::vector<SDL_Vertex>,std::vector<int>> warp = warpTextureBySubdivision(directionalPointers.getTextures()[i], directionalPointers.getTextureTruePosRot()[i], cameraDetails);
-					SDL_RenderGeometry(gRenderer, gTextures[directionalPointers.textures[i].getTextureID()], warp.first.data(), (int)warp.first.size(), warp.second.data(), (int)warp.second.size());
+				WorldObject directionalPointers = WorldObject{};
+				directionalPointers.graphics.addTexturePiece(GRectangleTexture{100,10,textureSet.findOrLoadTexture("red.bmp"),2}, GMatrix<4,4>{std::array<float,16>{1,0,0,0,0,0,1,0,0,1,0,0,0,0,0,1}});
+				directionalPointers.graphics.addTexturePiece(GRectangleTexture{100,10,textureSet.findOrLoadTexture("blue.bmp"),2}, GMatrix<4,4>{std::array<float,16>{0,0,-1,0,0,1,0,0,1,0,0,0,0,0,0,1}});
+				directionalPointers.graphics.addTexturePiece(GRectangleTexture{100,10,textureSet.findOrLoadTexture("green.bmp"),2}, GMatrix<4,4>{std::array<float,16>{0,1,0,0,-1,0,0,0,0,0,1,0,0,0,0,1}});
+				for (size_t i=0;i<directionalPointers.graphics.textures.size();i++) {
+					std::pair<std::vector<SDL_Vertex>,std::vector<int>> warp = warpTextureBySubdivision(directionalPointers.graphics.getTextures()[i], directionalPointers.getTextureTruePosRot()[i], cameraDetails.pos.getWorldPosition());
+					SDL_RenderGeometry(gRenderer, 
+										textureSet.getTexture(directionalPointers.graphics.textures[i].getTextureID()), 
+										warp.first.data(), 
+										(int)warp.first.size(), 
+										warp.second.data(), 
+										(int)warp.second.size());
 				}
+				*/
+
+				// Render text to the screen ( THIS IS HORRIBLY INNEFICIENT - it creates a new texture every frame)
+				// Adapt this to the new TextureSet class
+					// dynamicTextTexture class would not regenerate the texture unless you call .changeText()
+				//alternate solution: 
+				TTF_Font* Sans = TTF_OpenFont("OpenSans-Regular.ttf",24);
+				SDL_Color Black = {1,1,1};
+				SDL_Surface* surfaceMessage = TTF_RenderText_Solid(Sans, "temp text HERE", Black);
+				SDL_Texture* Message = SDL_CreateTextureFromSurface(gRenderer, surfaceMessage);
+				SDL_Rect message_rect;
+				message_rect.x = 50;
+				message_rect.y=50;
+				message_rect.w=100;
+				message_rect.h=100;
+				SDL_RenderCopy(gRenderer, Message, NULL, &message_rect);
+				SDL_FreeSurface(surfaceMessage);
+				SDL_DestroyTexture(Message);
+				TTF_CloseFont(Sans);
 
 				//Update screen
 				SDL_RenderPresent( gRenderer );
@@ -132,7 +180,8 @@ std::pair<std::vector<SDL_Vertex>,std::vector<int>> MainWindow::warpTextureBySub
 		D4text[i] = position*D4text[i];
 	}
 
-	//Create projection matrix
+	// TBD: Allow fovAngle to change based on user choice. Example game mechanic: higher velocity -> wider fov to "feel" speed?
+	//Create projection/clip matrix
 	GMatrix<4,4> matProj{};
 	float fovAngle = 60.0f;
 	float fovRad = 1.0f / tan((fovAngle *0.5f) * (3.14159f/180.0f));
@@ -147,35 +196,35 @@ std::pair<std::vector<SDL_Vertex>,std::vector<int>> MainWindow::warpTextureBySub
 	matProj[14] = (2*fNear*fFar)/(fNear-fFar);
 	matProj[15] = 0.0f; //Just in case
 
-	//Apply projection operations
+	//Apply operations
 	for (int i=0;i<D4text.size();i++) {
 
 		GVector<3> vec3{D4text[i][0],D4text[i][1],D4text[i][2]};
 
-		// THIS HAS TO DO WITH CAMERA POSITION AND ROTATION
-		// THIS ORDER ROTATES THE OBJECT, NOT THE CAMERA.
-		// TO rotate camera: Rotate all objects about axis of camera position?
-
 		//Set w to 1
 		GVector<4> vec4 = vec3.extendDimension(1);
 
-		//Rotate the shape to fit 'camera rotation'
-		GVector<4> vec = cameraDetails*vec4;
+		//VIEW TRANSFORMATION
+		//Transform the shape to fit 'camera state'
+		GVector<4> vec = cameraDetails.getInverse()*vec4; 
+		//std::cout << vec4 << " - becomes " << vec << "\n";
 
+
+		//PROJECTION TRANSFORMATION
 		//Apply projection matrix
 		vec = matProj*vec;
-		
+
 		if (vec[3]!=0.0f) {
-			vec[0] = vec[0]/vec[3]*20; //CHANGE THIS FROM 20 TO SOMETHING ELSE
-			vec[1] = vec[1]/vec[3]*20; //CHANGE THIS FROM 20 TO SOMETHING ELSE
-			vec[2] = vec[2]/vec[3]*20; //CHANGE THIS FROM 20 TO SOMETHING ELSE
-			vec[3] = vec[3]/vec[3]*20; //CHANGE THIS FROM 20 TO SOMETHING ELSE
+			vec[0] = vec[0]/vec[3];
+			vec[1] = vec[1]/vec[3];
+			vec[2] = vec[2]/vec[3];
 		}
 
-		//Move the shape so that the projection is centered
+		//Move  so that the projection is centered
 		// 0,0 is in the center of the viewing screen now, instead of top left
-		vec[0] += SCREEN_WIDTH/2 ;
-		vec[1] += SCREEN_HEIGHT/2 ;
+		vec[0] = ((vec[0]+1) /2 * SCREEN_WIDTH);
+		vec[1] = ((vec[1]+1) /2 * SCREEN_HEIGHT);
+
 
 		newVerticies[i] = {{vec[0],vec[1]},
 						{ 0xff,0xff,0xff,0xff },
@@ -185,11 +234,14 @@ std::pair<std::vector<SDL_Vertex>,std::vector<int>> MainWindow::warpTextureBySub
 		
 	}
 
-
-	//Construct and return pair
+	// Prepare render triangles (SDL_rendergeometry uses a simple set of triangles formed from {x,y} coordinates to render textures)
+	
+	//First set the vertices (the {x,y} vertices)
 	std::pair<std::vector<SDL_Vertex>,std::vector<int>> warp;
 	warp.first = newVerticies;
 
+	// Create vertices index list
+	// This code takes each "sub-rectangle" and adds 2 triangles to the set.
 	std::vector<int> indexList;
 	int colCount = 2+text.subdivisionCount;
 	for (int c=0;c<colCount-1;c++) {
@@ -215,7 +267,7 @@ bool MainWindow::init(std::string windowName)
 	bool success = true;
 
 	//Initialize SDL
-	if( SDL_Init( SDL_INIT_VIDEO ) < 0 )
+	if( SDL_Init( SDL_INIT_VIDEO ) < 0 ) // Failed to initizalize
 	{
 		printf( "SDL could not initialize! SDL Error: %s\n", SDL_GetError() );
 		success = false;
@@ -248,26 +300,16 @@ bool MainWindow::init(std::string windowName)
 			{
 				//Initialize renderer color
 				SDL_SetRenderDrawColor( gRenderer, 0xFF, 0xFF, 0xFF, 0xFF );
+
+				//Renderer successfully created; initalize the textureSet object
+				this->textureSet = GTextureSet();
+				textureSet.init(gRenderer);
+
 			}
 		}
 	}
 
 	return success;
-}
-
-size_t MainWindow::displayMedia(std::string path)
-{
-
-	//Load new texture
-	SDL_Texture* gTexture = loadTexture(path);
-	if( gTexture == NULL )
-	{
-		printf( "Failed to load texture image!\n" );
-		return -1;
-	} else {
-		gTextures.push_back(gTexture);
-		return gTextures.size() - 1;
-	}
 }
 
 void MainWindow::close()
@@ -282,36 +324,5 @@ void MainWindow::close()
 
 	//Quit SDL subsystems
 	SDL_Quit();
-}
-
-SDL_Texture* MainWindow::loadTexture( std::string path )
-{
-	//The final texture
-	SDL_Texture* newTexture = NULL;
-
-	//Load image at specified path
-	SDL_Surface* loadedSurface = SDL_LoadBMP( path.c_str() );
-	if( loadedSurface == NULL )
-	{
-		printf( "Unable to load image %s! SDL_image Error: %s\n", path.c_str() );
-	}
-	else
-	{
-		//Create texture from surface pixels
-        newTexture = SDL_CreateTextureFromSurface( gRenderer, loadedSurface );
-		if( newTexture == NULL )
-		{
-			printf( "Unable to create texture from %s! SDL Error: %s\n", path.c_str(), SDL_GetError() );
-		}
-
-		//Get rid of old loaded surface
-		SDL_FreeSurface( loadedSurface );
-	}
-
-	return newTexture;
-}
-
-void MainWindow::freeTexture(size_t index){
-	SDL_DestroyTexture(gTextures[index]);
-	gTextures.erase(std::next(gTextures.begin(),index));
+	TTF_Quit();
 }
