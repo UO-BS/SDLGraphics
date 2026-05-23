@@ -1,10 +1,10 @@
 
 Requirements from other projects:
 
-Seperating rendering and game logic.
+Separating rendering and game logic.
 Right now all game logic and rendering is on same thread in MainWindow().
 
-If we run on seperate threads;
+If we run on separate threads;
 - graphics would need a map object to render?
 - this map would need to be protected (mutex?)
 - for movement animations: graphics would need queue to contain each move
