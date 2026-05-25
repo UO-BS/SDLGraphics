@@ -5,8 +5,15 @@
 #include <vector>
 #include <unordered_map>
 #include <string>
+#include <memory>
+#include "CommonStructs.h"
 
-// This class holds and manages loadded textures for a window
+/*
+    This class holds and manages loaded SDL_Textures for an SDL window
+    Objects hold a weak_ptr to a GTexture struct, which holds the SDL_Texture and its dimensions.
+
+    This class also initializes and quits SDL_ttf matching its own lifetime
+*/
 
 class GTextureSet
 {
@@ -16,31 +23,36 @@ public:
     bool init(SDL_Renderer* gRenderer);
 
     ~GTextureSet();
+    
+    // Clear all textures
+    void clear();
 
-    // Get the index of loaded texture (load the texture if it has not been loaded yet)
-    int findOrLoadTexture(std::string textureFilePath);
+    // Get an ID for a loaded texture (load the texture if it has not been loaded yet)
+    uint32_t findOrLoadTexture(std::string textureFilePath);
 
-    //Get texture based on index
-    //TODO: Create a missing texture and return it for invalid index
-    SDL_Texture* getTexture(int index);
+    // Get a pointer to a loaded texture by its ID
+    const GTexture* getTexture(uint32_t textureID);
 
-    // Remove loaded texture (potentially dangerous)
-    //TODO: right now it uses erase(), which will invalidate all indices after the erased one... This is bad
-    //Solution: only 1 set; whenever i need to edit the text, just overwrite the texture in vector[] 
-        // Never remove any textures; only replace
-    void freeTexture(std::string texturePath);
+    // Free a loaded texture
+    void freeTexture(const std::string& texturePath);
+
+    uint32_t idSystemCounter = 1; // ID 0 is reserved for the fallback texture
 
 private:
-
+    // Flag to check if the class has been initialized
     bool initialized;
 
     //Load image file as a texture
-    int loadImageTexture( std::string path );
+    uint32_t loadImageTexture(std::string textureFilePath );
     
-    //Currently loaded textures
-    std::vector<SDL_Texture*> gTextures;
-    // Map of texture file names to the loaded texture index
-    std::unordered_map<std::string,int> gMap;
+    // Map of texture file names to their integer IDs
+    std::unordered_map<std::string, uint32_t> stringToIDMap;
+
+    // Map of texture IDs to their texture objects
+    std::unordered_map<uint32_t, std::unique_ptr<GTexture>> IDToTextureMap;
+
+    // The fallback texture for when an object's weak_ptr is expired
+    void createFallbackTexture();
 
     //Hold pointer to the window's renderer (GTextureSet should have a shorter lifetime then the renderer)
     SDL_Renderer* gRenderer = NULL;

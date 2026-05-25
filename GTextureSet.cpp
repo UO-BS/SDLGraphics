@@ -7,42 +7,81 @@ bool GTextureSet::init(SDL_Renderer* gRenderer) {
     //Set the renderer
     this->gRenderer = gRenderer;
 
-    //Initialization flag
-	bool success = true;
-    //Initialize SDL_ttf
-    if( TTF_Init() == -1 )
-    {
-        printf( "SDL_ttf could not initialize! SDL_ttf Error: %s\n", TTF_GetError() );
-        success = false;
-    }
+    createFallbackTexture();
 
-    initialized = success;
-    return success;
+    initialized = true;
+    return true;
+}
+
+void GTextureSet::createFallbackTexture() {
+    // Create the fallback Texture
+    std::unique_ptr<GTexture> fallbackTexture = std::make_unique<GTexture>();
+    fallbackTexture->texture = SDL_CreateTexture(gRenderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, 16, 16);
+    fallbackTexture->dimensions.width = 16;
+    fallbackTexture->dimensions.height = 16;
+    // Draw the fallback Texture (purple and black checkerboard)
+    SDL_SetRenderTarget(gRenderer, fallbackTexture->texture);
+    SDL_SetRenderDrawColor(gRenderer, 255, 0, 255, 255); // Set to purple
+    SDL_RenderClear(gRenderer); // Color the whole texture purple
+    SDL_SetRenderDrawColor(gRenderer, 0, 0, 0, 255); // Set to black
+    SDL_Rect cornerRect = {0,0,8,8};
+    SDL_RenderFillRect(gRenderer, &cornerRect); // Fill corner with black
+    SDL_Rect otherCornerRect = {8,8,8,8};
+    SDL_RenderFillRect(gRenderer, &otherCornerRect); // Fill corner with black
+    // Reset the render target
+    SDL_SetRenderTarget(gRenderer, nullptr);
+    SDL_SetRenderDrawColor(gRenderer, 255, 2550, 255, 255); // Set to white for future draws
+
+    IDToTextureMap[0] = std::move(fallbackTexture);
 }
 
 GTextureSet::~GTextureSet() {
     if (!initialized) {return;}
 
-    //Delete all textures
-    for (auto texture : gTextures) {
-        SDL_DestroyTexture(texture);
-    }
-    gTextures.clear();
-    gMap.clear();
+    // Clear all textures
+    clear();
 
     //Quit SDL_ttf
     TTF_Quit();
 }
 
-int GTextureSet::findOrLoadTexture(std::string textureFilePath) {
+void GTextureSet::clear() {
+    if (!initialized) {return;}
+
+    // Clearing the objects from the map will automatically free the texture. 
+    //      The map holds a unique pointer to the GTexture struct, which has a destructor that frees the SDL_Texture.
+    stringToIDMap.clear();
+    IDToTextureMap.clear();
+}
+
+const GTexture* GTextureSet::getTexture(uint32_t textureID) {
+    if (!initialized) {
+        printf( "GTextureSet not initialized! getTexture failed. \n" );
+        return nullptr;
+    }
+
+    auto it = IDToTextureMap.find(textureID);
+    
+    if (it == IDToTextureMap.end()) //Texture is not in the map; use placeholder
+    { 
+        printf( "Texture ID %d not found! getTexture failed. \n", textureID );
+        return IDToTextureMap[0].get();
+    } 
+    else //Texture found
+    { 
+        return it->second.get();
+    }
+}
+
+uint32_t GTextureSet::findOrLoadTexture(std::string textureFilePath) {
     if (!initialized) {
         printf( "GTextureSet not initialized! findOrLoadTexture failed. \n" );
         return -1;
     }
 
-    auto it = gMap.find(textureFilePath);
+    auto it = stringToIDMap.find(textureFilePath);
     
-    if (it == gMap.end()) //Texture is not in the map; need to load it
+    if (it == stringToIDMap.end()) //Texture is not in the map; need to load it
     { 
         return loadImageTexture(textureFilePath);
     } 
@@ -52,28 +91,15 @@ int GTextureSet::findOrLoadTexture(std::string textureFilePath) {
     }
 }
 
-SDL_Texture* GTextureSet::getTexture(int index) {
-    if (!initialized) {
-        printf( "GTextureSet not initialized! getTexture failed. \n" );
-        return nullptr;
-    }
-    if (index > gTextures.size()-1) {
-        printf( "Invalid Index! getTexture failed. \n" );
-        return nullptr;
-    }
-
-    return gTextures[index];
-}
-
-int GTextureSet::loadImageTexture( std::string path ) {
+uint32_t GTextureSet::loadImageTexture( std::string textureFilePath ) {
     //The final texture
 	SDL_Texture* newTexture = NULL;
 
 	//Load image at specified path
-	SDL_Surface* loadedSurface = SDL_LoadBMP( path.c_str() );
+	SDL_Surface* loadedSurface = SDL_LoadBMP( textureFilePath.c_str() );
 	if( loadedSurface == NULL )
 	{
-		printf( "Unable to load image %s! SDL_image Error: %s\n", path.c_str() );
+		printf( "Unable to load image %s! SDL_image Error: %s\n", textureFilePath.c_str() );
         return -1;
 	}
 	
@@ -81,7 +107,7 @@ int GTextureSet::loadImageTexture( std::string path ) {
     newTexture = SDL_CreateTextureFromSurface( gRenderer, loadedSurface );
     if( newTexture == NULL )
     {
-        printf( "Unable to create texture from %s! SDL Error: %s\n", path.c_str(), SDL_GetError() );
+        printf( "Unable to create texture from %s! SDL Error: %s\n", textureFilePath.c_str(), SDL_GetError() );
         //Get rid of old loaded surface
         SDL_FreeSurface( loadedSurface );
         return -1;
@@ -90,30 +116,26 @@ int GTextureSet::loadImageTexture( std::string path ) {
     //Get rid of old loaded surface
     SDL_FreeSurface( loadedSurface );
 
-    gTextures.push_back(newTexture);
-    size_t pos = gTextures.size() - 1;
-    gMap[path] = pos;
+    // Create unique pointer to the GTexture struct
+    std::unique_ptr<GTexture> newGTexture = std::make_unique<GTexture>();
+    newGTexture->texture = newTexture;
+    newGTexture->dimensions.width = loadedSurface->w;
+    newGTexture->dimensions.height = loadedSurface->h;
 
-	return pos;
+    uint32_t newID = idSystemCounter++;
+    stringToIDMap[textureFilePath] = newID;
+    IDToTextureMap[newID] = std::move(newGTexture);
+    return newID;
 }
 
-void GTextureSet::freeTexture(std::string texturePath) {
+void GTextureSet::freeTexture(const std::string& texturePath) {
     if (!initialized) {
         printf( "GTextureSet not initialized! freeTexture failed. \n" );
         return;
     }
 
-    auto it = gMap.find(texturePath);
-    
-    //Texture is not in the map
-    if (it == gMap.end()) {
-        return;
-    }
-
-    //Destroy texture
-    SDL_DestroyTexture(gTextures[it->second]);
-    //Remove from loaded texture vector
-	gTextures.erase(std::next(gTextures.begin(),it->second));
-    //Remove from map
-    gMap.erase(it);
+    // Erasing the object from the map will automatically free the texture. 
+    //      The map holds a unique pointer to the GTexture struct, which has a destructor that frees the SDL_Texture.
+    stringToIDMap.erase(texturePath);
+    IDToTextureMap.erase(stringToIDMap[texturePath]);
 }

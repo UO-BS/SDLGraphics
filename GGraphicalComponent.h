@@ -4,36 +4,34 @@
 #include <vector>
 #include "GMatrix.h"
 #include "GVector.h"
-#include "GRectangleTexture.h"
+#include "GTexturePolygon.h"
 
-// This class represents the GraphicalComponent of an object in 3D space
+/*
+    This class represents the GraphicalComponent of an object in 3D space
+    It holds a collection of textures and their positions/rotations relative to the object (Model space)
+    For example; a cube has 6 'polygons' and the 'polygonPosRot' is what arranges the 6 sides into the cube shape
 
-// The GraphicalComponent holds the Position and Rotation of all textures associated with the object
-// It is composed of many GRectangleTextures 'textures', which each have a relative position/rotation 'texturePosRot'
-// For example; a cube has 6 'textures' and the 'texturePosRot' is what arranges the 6 sides into the cube shape
+    I use this convention: https://stackoverflow.com/questions/10094634/4x4-matrix-last-element-significance
+    The corner 3x3 matrix is the rotation, and the 4th column is the position
+*/ 
 
 class GGraphicalComponent
 {
 public:
 
-    // Use this convention: https://stackoverflow.com/questions/10094634/4x4-matrix-last-element-significance 
-
-    // These textures form the graphical "object"
-    std::vector<GRectangleTexture> textures;
-    std::vector<GMatrix<4,4>> texturePosRot;
+    // These polygons form the graphical "object"
+    std::vector<GTexturePolygon> polygons;
+    std::vector<GMatrix<4,4>> polygonPosRot;
 
     //constructors
     GGraphicalComponent();
-    GGraphicalComponent(std::vector<GRectangleTexture> textures, std::vector<GMatrix<4,4>> texturePosRot);
+    GGraphicalComponent(std::vector<GTexturePolygon> polygons, std::vector<GMatrix<4,4>> polygonPosRot);
 
-    //Controlling individual textures
-    void addTexturePiece(GRectangleTexture newTexture, GMatrix<4,4> newPosRot);
+    //Controlling individual polygons
+    void addPolygon(GTexturePolygon newPolygon, GMatrix<4,4> newPosRot);
 
-    // Get texture details
-    std::vector<GRectangleTexture> getTextures();
-    // Get the coordinates of the textures based on the position/rotation of a given origin point.
-    std::vector<GMatrix<4,4>> getTextureTruePosRot(GMatrix<4,4> originPoint);
-
+    // Get polygon details
+    std::vector<GTexturePolygon> getPolygons();
 };
 
 #endif

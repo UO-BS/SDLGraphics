@@ -6,7 +6,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 add_executable(SDLGraphics 
     GGraphicalComponent.cpp 
-    GRectangleTexture.cpp 
+    GTexturePolygon.cpp
     GTextureSet.cpp 
     MainWindow.cpp 
     WorldPosition.cpp

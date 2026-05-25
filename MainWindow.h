@@ -8,10 +8,10 @@
 #include <utility>
 #include <vector>
 #include "GVector.h"
-#include "GQuaternion.h"
 #include "GMatrix.h"
-#include "GRectangleTexture.h"
 #include "GTextureSet.h"
+#include "GTexturePolygon.h"
+#include "WorldObject.h"
 
 //Screen dimension constants
 const int SCREEN_WIDTH = 1280;
@@ -22,6 +22,10 @@ class MainWindow{
 public:
     MainWindow(std::string windowName);
     bool init(std::string windowName);
+    bool initialized = false;
+
+    // Temporary method to start the main loop
+    void run();
         
     //Close window (includes cleanup)
     void close();
@@ -31,10 +35,11 @@ public:
 
 private:
 
-    //TODO: Rename to something like "ProjectiveTransfromApproxByAffine"
-    std::pair<std::vector<SDL_Vertex>,std::vector<int>> warpTextureBySubdivision(GRectangleTexture text,
-																						GMatrix<4,4> position,
-																						GMatrix<4,4> cameraDetails);
+    std::vector<GTexturePolygon> entityToClipSpace(std::vector<WorldObject> worldObjects, WorldObject cameraDetails);
+
+    std::unordered_map<uint32_t, std::vector<SDL_Vertex>> clipSpaceToDrawBatch(std::vector<GTexturePolygon> clipSpacePolygons);
+
+    void draw(std::unordered_map<uint32_t, std::vector<SDL_Vertex>> drawBatches);
 
     //The window we'll be rendering to
     SDL_Window* gWindow = NULL;
@@ -42,7 +47,7 @@ private:
     //The window renderer
     SDL_Renderer* gRenderer = NULL;
 
-    GTextureSet textureSet; //TextureSet is initialized in init()
+    GTextureSet textureSet = GTextureSet();
 
 };
 

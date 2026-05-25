@@ -11,17 +11,14 @@ class WorldObject
 {
 public:
 
+    // Position in world space
     WorldPosition pos;
+    // Graphical component of the object (Model space)
     GGraphicalComponent graphics;
 
     WorldObject(): pos(WorldPosition{}), graphics(GGraphicalComponent{}) {}
     WorldObject(WorldPosition pos, GGraphicalComponent graphics): pos(pos), graphics(graphics) {}
     
-    // Get the coordinates of the textures in world space.
-    std::vector<GMatrix<4,4>> getTextureTruePosRot() {
-        return graphics.getTextureTruePosRot(pos.getWorldPosition());
-    }
-
 private:
 
 
