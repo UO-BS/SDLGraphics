@@ -59,20 +59,29 @@ void MainWindow::run() {
 				switch( e.key.keysym.sym ){
 					case SDLK_UP:
 						printf( "Up\n" );
-						cameraDetails.pos.rotate(-2,0,0);
+						cameraDetails.pos.rotate(4,0,0);
 						break;
 					case SDLK_DOWN:
 						printf( "Down\n" );
-						cameraDetails.pos.rotate(2,0,0);
+						cameraDetails.pos.rotate(-4,0,0);
 						break;
 
 					case SDLK_LEFT:
 						printf( "Left\n" );
-						cameraDetails.pos.rotate(0,-2,0);
+						cameraDetails.pos.rotate(0,-4,0);
 						break;
 					case SDLK_RIGHT:
 						printf( "Right\n" );
-						cameraDetails.pos.rotate(0,2,0);
+						cameraDetails.pos.rotate(0,4,0);
+						break;
+					
+					case SDLK_LSHIFT:
+						printf( "Shift\n" );
+						cameraDetails.pos.translate(GVector<3>{0,10.0f,0}, false);
+						break;
+					case SDLK_LCTRL:
+						printf( "Ctrl\n" );
+						cameraDetails.pos.translate(GVector<3>{0,-10.0f,0}, false);
 						break;
 
 					case SDLK_w:
@@ -104,6 +113,9 @@ void MainWindow::run() {
 		std::vector<WorldObject> worldObjects;
 		WorldObject mainObject = WorldObject{};
 		mainObject.graphics.addPolygon(GTexturePolygon{100, 100, textureSet.findOrLoadTexture("clueless.bmp")}, GMatrix<4,4>{std::array<float,16>{1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1}});
+		mainObject.graphics.addPolygon(GTexturePolygon{100, 100, textureSet.findOrLoadTexture("clueless.bmp")}, GMatrix<4,4>{std::array<float,16>{0,0,-1,0,0,1,0,0,1,0,0,0,0,0,0,1}});
+		mainObject.graphics.addPolygon(GTexturePolygon{100, 100, textureSet.findOrLoadTexture("clueless.bmp")}, GMatrix<4,4>{std::array<float,16>{0,0,-1,0,0,1,0,0,1,0,0,0,100,0,0,1}});
+		mainObject.graphics.addPolygon(GTexturePolygon{100, 100, textureSet.findOrLoadTexture("clueless.bmp")}, GMatrix<4,4>{std::array<float,16>{1,0,0,0,0,1,0,0,0,0,1,0,0,0,-100,1}});
 		worldObjects.push_back(mainObject);
 
 		/*
@@ -341,18 +353,18 @@ std::vector<GTexturePolygon> MainWindow::entityToClipSpace(std::vector<WorldObje
 	GMatrix<4,4> camInverse = cameraDetails.pos.getWorldPosition().getInverse();
 
 	// Create the start of the combined transformation matrix
-	GMatrix<4,4> transformMatrix = matProj * camInverse;
+	GMatrix<4,4> combinedMatrix = matProj * camInverse;
 
 	// Loop through each graphical component
 	for (size_t i=0;i<worldObjects.size();i++) {
-		transformMatrix = transformMatrix * worldObjects[i].pos.getWorldPosition();
+		GMatrix<4,4> objectLevelMatrix = combinedMatrix * worldObjects[i].pos.getWorldPosition();
 
 		// Loop through each polygon in the graphical component
 		for (size_t j=0;j<worldObjects[i].graphics.polygons.size();j++) {
-			transformMatrix = transformMatrix * worldObjects[i].graphics.polygonPosRot[j];
+			GMatrix<4,4> polygonLevelMatrix = objectLevelMatrix * worldObjects[i].graphics.polygonPosRot[j];
 
 			// Make a clip space copy of the polygon and add it to the master list
-			polygonCopies.push_back(GTexturePolygon{worldObjects[i].graphics.polygons[j]}.applyTransformation(transformMatrix));
+			polygonCopies.push_back(GTexturePolygon{worldObjects[i].graphics.polygons[j]}.applyTransformation(polygonLevelMatrix));
 		}
 	}
 	
@@ -367,7 +379,7 @@ MainWindow::~MainWindow() {
 bool MainWindow::init(std::string windowName)
 {
 	//Initialize SDL
-	if( SDL_Init( SDL_INIT_VIDEO ) < 0 ) // Failed to initizalize
+	if( SDL_Init( SDL_INIT_VIDEO ) < 0 ) // Failed to initialize
 	{
 		printf( "SDL could not initialize! SDL Error: %s\n", SDL_GetError() );
 		return false;

@@ -13,8 +13,3 @@ void GGraphicalComponent::addPolygon(GTexturePolygon newPolygon, GMatrix<4,4> ne
     polygons.push_back(newPolygon);
     polygonPosRot.push_back(newPosRot);
 }
-
-
-std::vector<GTexturePolygon> GGraphicalComponent::getPolygons(){
-    return polygons;
-}

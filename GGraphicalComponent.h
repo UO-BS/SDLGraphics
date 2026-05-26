@@ -32,8 +32,6 @@ public:
     //Controlling individual polygons
     void addPolygon(GTexturePolygon newPolygon, GMatrix<4,4> newPosRot);
 
-    // Get polygon details
-    std::vector<GTexturePolygon> getPolygons();
 };
 
 #endif
