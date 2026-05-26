@@ -97,12 +97,34 @@ const GTexture* GTextureManager::loadImageTexture(const std::string& textureFile
     // TODO: Consider changing this to GL_NEAREST for Pixel Art
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-    GLenum format = GL_RGB;
-    if (loadedSurface->format->BytesPerPixel == 4) {
-        format = GL_RGBA;
+    // Internal format is how we want OpenGL to store it on the GPU, format is the way it is given.
+    GLenum internalFormat;
+    GLenum format;
+    switch (loadedSurface->format->format) {
+        case SDL_PIXELFORMAT_RGB24:
+            internalFormat = GL_RGB;
+            format = GL_RGB;
+            break;
+        case SDL_PIXELFORMAT_BGR24: // Standard BMP 24-bit format
+            internalFormat = GL_RGB;
+            format = GL_BGR;
+            break;
+        case SDL_PIXELFORMAT_RGBA32:
+            internalFormat = GL_RGBA;
+            format = GL_RGBA;
+            break;
+        case SDL_PIXELFORMAT_BGRA32: // Standard BMP 32-bit format
+            internalFormat = GL_RGBA;
+            format = GL_BGRA;
+            break;
+        default:
+            // Fallback or handle other formats
+            internalFormat = GL_RGB;
+            format = GL_RGB;
+            break;
     }
 
-    glTexImage2D(GL_TEXTURE_2D, 0, format, newTexture->width, newTexture->height, 0, format, GL_UNSIGNED_BYTE, loadedSurface->pixels);
+    glTexImage2D(GL_TEXTURE_2D, 0, internalFormat, newTexture->width, newTexture->height, 0, format, GL_UNSIGNED_BYTE, loadedSurface->pixels);
     glGenerateMipmap(GL_TEXTURE_2D);
 
     // Clean CPU Memory

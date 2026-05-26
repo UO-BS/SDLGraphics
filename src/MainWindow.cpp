@@ -26,27 +26,30 @@ void MainWindow::run() {
 	const GTexture* redTexture    = assetManager.loadTexture("assets/red.bmp");
     const GTexture* blueTexture   = assetManager.loadTexture("assets/blue.bmp");
     const GTexture* greenTexture  = assetManager.loadTexture("assets/green.bmp");
+	const GTexture* gradientTexture  = assetManager.loadTexture("assets/gradient.bmp");
     const GTexture* cluelessTexture  = assetManager.loadTexture("assets/clueless.bmp");
 
-	// Generate a square mesh
-    std::vector<GTextureVertex> squareVertices = GMeshBuilder::CreateCube(100.0f, 100.0f, 100.0f);
+	// Generate mesh vertices
+    std::vector<GTextureVertex> cube1Vertices = GMeshBuilder::CreateCube(50.0f, 50.0f, 50.0f);
+	std::vector<GTextureVertex> cube2Vertices = GMeshBuilder::CreateCube(600.0f, 600.0f, 600.0f);
 
     // Upload geometry vectors to VRAM and cache their pointers inside the manager
-    const GMesh* redMesh   = assetManager.loadMesh("red_face",   squareVertices, redTexture);
-    const GMesh* blueMesh  = assetManager.loadMesh("blue_face",  squareVertices, blueTexture);
-    const GMesh* greenMesh = assetManager.loadMesh("green_face", squareVertices, greenTexture);
-    const GMesh* cluelessMesh = assetManager.loadMesh("crate_face", squareVertices, cluelessTexture);
+    const GMesh* cluelessMesh = assetManager.loadMesh("cube1_face", cube1Vertices, cluelessTexture);
+	const GMesh* gradientMesh = assetManager.loadMesh("cube2_face", cube2Vertices, gradientTexture);
 
 	// Create my Entity list
 	std::vector<Entity> entities;
 
 	// Create Camera
 	Entity camera = Entity{nullptr};
-	camera.pos.transform(GMatrix<4,4>{std::array<float,16>{1,0,0,0,0,1,0,0,0,0,1,0,0,0,-800,1}});
+	camera.pos.transform(GMatrix<4,4>{std::array<float,16>{1,0,0,0,0,1,0,0,0,0,1,0,0,0,-250,1}});
 
 	// Create Objects
 	Entity mainObject = Entity{cluelessMesh};
 	entities.push_back(mainObject);
+	Entity backgroundObject = Entity{gradientMesh};
+	entities.push_back(backgroundObject);
+	
 
 	// TODO: Allow fovAngle to change
 	GMatrix<4,4> matProj{};
