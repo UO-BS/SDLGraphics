@@ -1,7 +1,7 @@
-#include "WorldPosition.h"
+#include "GEngine/WorldPosition.h"
 #include <vector>
-#include "GVector.h"
-#include "GMatrix.h"
+#include "GEngine/GVector.h"
+#include "GEngine/GMatrix.h"
 
 WorldPosition::WorldPosition(): state(GMatrix<4,4>{std::array<float,16>{1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1}}) {}
 
@@ -116,10 +116,14 @@ GMatrix<3,3> WorldPosition::getRotation() {
 
 
 
-void WorldPosition::transform(GMatrix<4,4> transformation) {
-    state *= transformation;
+void WorldPosition::transform(GMatrix<4,4> transformation, bool absolute) {
+    if (absolute) {
+        state = transformation * state;
+    } else {
+        state *= transformation;
+    }
 }
 
-GMatrix<4,4> WorldPosition::getWorldPosition() {
+const GMatrix<4,4>& WorldPosition::getWorldPosition() const {
     return state;
 }

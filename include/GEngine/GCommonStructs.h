@@ -1,20 +1,18 @@
 #ifndef G_COMMON_STRUCTS_H
 #define G_COMMON_STRUCTS_H
 
-#include <SDL.h>
+#include <glad/glad.h>
 #include "GVector.h"
 
-struct GTextureDimensions {
-    int width;
-    int height;
-};
-
 struct GTexture {
-    SDL_Texture* texture = nullptr;
-    GTextureDimensions dimensions{0,0};
+    GLuint textureID = 0;
+    int width = 0;
+    int height = 0;
 
     ~GTexture() {
-        SDL_DestroyTexture(texture);
+        if (textureID != 0) {
+            glDeleteTextures(1, &textureID);
+        }
     }
 };
 
@@ -27,10 +25,6 @@ struct GTextureVertex {
     */
     GVector<4> worldVertex;
     GVector<2> textureVertex;
-};
-
-struct GTextureTriangle {
-    GTextureVertex vertices[3];
 };
 
 #endif

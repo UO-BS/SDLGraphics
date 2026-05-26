@@ -34,9 +34,9 @@ public:
     // Get Rotation
     GMatrix<3,3> getRotation();
 
-
-    void transform(GMatrix<4,4> transformation);
-    GMatrix<4,4> getWorldPosition();
+    // The "absolute" variable determines if the object should move relative to the world axis, or relative to where its currently facing
+    void transform(GMatrix<4,4> transformation, bool absolute = false);
+    const GMatrix<4,4>& getWorldPosition() const;
 
 private:
 

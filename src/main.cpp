@@ -1,7 +1,5 @@
 
-#include "MainWindow.h"
-
-#include "WorldObject.h"
+#include "GEngine/MainWindow.h"
 
 int main(int argc, char *argv[])
 {   

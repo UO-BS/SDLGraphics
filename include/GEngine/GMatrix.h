@@ -12,7 +12,7 @@ class GMatrix
 {
 public:
 
-    // The GMatrix is columns of Vectors (column-major). GMatrix<4,4>[4] is the first-row second-column.
+    // The GMatrix is columns of Vectors (column-major). GMatrix<4,4>[4] is the first-row second-column. index = row + (NUM_PER_ROW x col)
     std::array<float,R*C> data;
 
     //0 Matrix
@@ -29,6 +29,10 @@ public:
         }
     }
 
+    const float* getRaw() const {
+        return data.data();
+    };
+
     float& operator[](size_t index)
     {
         if(index>=R*C+C){
@@ -44,22 +48,23 @@ public:
         if (C!=R2) {
             std::invalid_argument e("Invalid Matrix");
             throw e;
-        } else {
+        } 
 
-            GMatrix<R,C2> result{};
+        GMatrix<R,C2> result{};
 
-            for (int row1=0;row1<R;row1++) {
-                for (int col2=0;col2<C2;col2++) {
-                    for (int col1=0;col1<C;col1++) {
-                        result[(row1)+C*col2] += this->data[(row1)+C*col1] * m.data[(col1)+C*col2];
-                    }
-                } 
+        // For each column in Matrix2
+        for (size_t col2 = 0; col2 < C2; col2++) {
+            // For each row in Matrix1
+            for (size_t row1 = 0; row1 < R; row1++) {
+                // For each element to dot-product
+                for (size_t col1 = 0; col1 < C; col1++) {
+                    result.data[row1 + (R * col2)] += this->data[row1 + (R * col1)] * m.data[col1 + (R2 * col2)];
+                }
             }
-
-
-            return result;
-
         }
+
+        return result;
+
     }
 
     GMatrix& operator*=(const GMatrix& m)
@@ -68,7 +73,7 @@ public:
         return *this;
     }
 
-    GMatrix<R,C> getInverse() {
+    GMatrix<R,C> getInverse() const {
         
         GMatrix<R,C> inverse;
 
@@ -90,7 +95,7 @@ public:
         return inverse;
     }
 
-    GMatrix<R,C> getTranspose() {
+    GMatrix<R,C> getTranspose() const {
 
         GMatrix<R,C> solution{};
 
@@ -103,8 +108,7 @@ public:
     }
 
 
-    GMatrix<R,C> getCofactor() 
-    {
+    GMatrix<R,C> getCofactor() const {
         if(R != C) {
             throw std::invalid_argument ("Cofactor requires square matrix");
         } 
