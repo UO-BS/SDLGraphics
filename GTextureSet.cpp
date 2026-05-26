@@ -40,9 +40,6 @@ GTextureSet::~GTextureSet() {
 
     // Clear all textures
     clear();
-
-    //Quit SDL_ttf
-    TTF_Quit();
 }
 
 void GTextureSet::clear() {

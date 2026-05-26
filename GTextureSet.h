@@ -10,9 +10,6 @@
 
 /*
     This class holds and manages loaded SDL_Textures for an SDL window
-    Objects hold a weak_ptr to a GTexture struct, which holds the SDL_Texture and its dimensions.
-
-    This class also initializes and quits SDL_ttf matching its own lifetime
 */
 
 class GTextureSet
