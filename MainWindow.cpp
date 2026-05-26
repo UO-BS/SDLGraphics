@@ -3,6 +3,7 @@
 #include <cmath>
 #include "GMatrix.h"
 #include "WorldObject.h"
+#include <bitset>
 
 
 MainWindow::MainWindow(std::string windowName)
@@ -76,19 +77,19 @@ void MainWindow::run() {
 
 					case SDLK_w:
 						printf( "w\n" );
-						cameraDetails.pos.translate(GVector<3>{0,0,10}, false);
+						cameraDetails.pos.translate(GVector<3>{0,0,10.0f}, false);
 						break;
 					case SDLK_a:
 						printf( "a\n" );
-						cameraDetails.pos.translate(GVector<3>{-10,0,0}, false);
+						cameraDetails.pos.translate(GVector<3>{-10.0f,0,0}, false);
 						break;
 					case SDLK_s:
 						printf( "s\n" );
-						cameraDetails.pos.translate(GVector<3>{0,0,-10}, false);
+						cameraDetails.pos.translate(GVector<3>{0,0,-10.0f}, false);
 						break;
 					case SDLK_d:
 						printf( "d\n" );
-						cameraDetails.pos.translate(GVector<3>{10,0,0}, false);
+						cameraDetails.pos.translate(GVector<3>{10.0f,0,0}, false);
 						break;
 				}
 
@@ -98,15 +99,6 @@ void MainWindow::run() {
 		//Clear screen
 		SDL_RenderClear( gRenderer );
 
-		//To Do: ISSUES WITH CAMERA ROTATION.
-		//https://stackoverflow.com/questions/60561455/how-do-i-rotate-my-camera-correctly-in-my-3d-world
-		//https://www.3dgep.com/understanding-the-view-matrix/  
-		//https://stackoverflow.com/questions/724219/how-to-convert-a-3d-point-into-2d-perspective-projection
-		//https://gamedev.stackexchange.com/questions/178643/the-view-matrix-finally-explained
-
-		//TODO:  (These will probably be fixed with clipping)
-		// 1. Fix objects behind camera appearing anyway (but flipped)
-		// 2. Fix objects disappearing when they start to go offscreen
 
 		// TODO: Remove this from the render loop | Create the objects (should only be done once)
 		std::vector<WorldObject> worldObjects;
@@ -133,7 +125,9 @@ void MainWindow::run() {
 
 		std::vector<GTexturePolygon> polygonCopies = entityToClipSpace(worldObjects, cameraDetails);
 
-		// Perform clipping algorithm (affects all x y z w u v values)
+		// Perform Clipping
+		clipTriangles(polygonCopies);
+
 		// Perform subdivision based on distance from camera (affects all x y z w u v values)
 
 		std::unordered_map<uint32_t, std::vector<SDL_Vertex>> drawBatches = clipSpaceToDrawBatch(polygonCopies);
@@ -165,6 +159,121 @@ void MainWindow::run() {
 		//Update screen
 		SDL_RenderPresent( gRenderer );
 	}
+}
+
+uint8_t MainWindow::computeOutCode(GVector<4> vertex) {
+    uint8_t outCode{0};
+
+	outCode |= (vertex[2] < -vertex[3]) * PlaneIndex::NEAR_PLANE; // Near plane
+	outCode |= (vertex[0] < -vertex[3]) * PlaneIndex::LEFT_PLANE; // Left plane
+	outCode |= (vertex[0] > vertex[3]) * PlaneIndex::RIGHT_PLANE; // Right plane
+	outCode |= (vertex[1] > vertex[3]) * PlaneIndex::TOP_PLANE; // Top plane
+	outCode |= (vertex[1] < -vertex[3]) * PlaneIndex::BOTTOM_PLANE; // Bottom plane
+	outCode |= (vertex[2] > vertex[3]) * PlaneIndex::FAR_PLANE; // Far plane
+
+    return outCode;
+}
+
+
+void MainWindow::clipTriangles(std::vector<GTexturePolygon>& polygons) {
+	// Loop through each polygon
+	for (size_t i=0;i<polygons.size();i++) {
+		// We only need to loop through the original triangles
+		size_t oldTriangleAmount = polygons[i].triangles.size();
+		
+		// Loop through each of the original triangles
+		for (size_t j=0;j<oldTriangleAmount;) {
+
+			// Outcode of each vertex
+			std::vector<uint8_t> outCodes(3);
+			outCodes[0] = computeOutCode(polygons[i].triangles[j].vertices[0].worldVertex);
+			outCodes[1] = computeOutCode(polygons[i].triangles[j].vertices[1].worldVertex);
+			outCodes[2] = computeOutCode(polygons[i].triangles[j].vertices[2].worldVertex);
+
+			// outCodes[0] | outCodes[1] | outCodes[2] == 000000 -> Triangle is fully visible
+			if ((outCodes[0] | outCodes[1] | outCodes[2]) == 000000) {
+				j++;
+				continue;
+			}
+			// outCodes[0] & outCodes[1] & outCodes[2] != 000000 -> Triangle is fully invisible, remove it
+			if ((outCodes[0] & outCodes[1] & outCodes[2]) != 000000) {
+				polygons[i].removeTriangle(j);
+				oldTriangleAmount--;
+				continue;
+			}
+
+			// By reaching this point, we know that the triangle needs to be clipped at least once
+			std::vector<GTextureVertex> vertexBuffer1{std::begin(polygons[i].triangles[j].vertices), std::end(polygons[i].triangles[j].vertices)};
+			std::vector<GTextureVertex> vertexBuffer2;
+			std::vector<uint8_t> outCodesBuffer;
+
+			// Begin clipping planes in the following order:
+			// Near Plane (this is important to do first since vertices behind the near plane can cause issues with the other planes)
+			// Left and Right (often users will look left and right more than up and down)
+			// Top and bottom
+			// Far
+
+			// If any of the outcodes have the plane's bit set, we need to clip against that plane.
+			for (size_t plane=0;plane<6;plane++) {
+				uint8_t planeBit = 1 << plane;
+
+				for (size_t vertexIndex=0;vertexIndex<vertexBuffer1.size();vertexIndex++) {
+					// Note: since we are using size_t (unsigned) we have to be careful when doing vertexIndex-1... Only use it when vertexIndex > 0
+					size_t previousVertexIndex = (vertexIndex == 0) ? (vertexBuffer1.size() - 1) : (vertexIndex - 1);
+
+					if ((outCodes[vertexIndex] & planeBit) != (outCodes[previousVertexIndex] & planeBit)) {
+						// One vertex is inside and the other is outside, so find the intersection point and add it to the buffer
+						
+						// Calculate and add intersection point
+						float dPrev = vertexBuffer1[previousVertexIndex].worldVertex[3] + (signMap[plane] * vertexBuffer1[previousVertexIndex].worldVertex[planeComponentMap[plane]]);
+						float dCurr = vertexBuffer1[vertexIndex].worldVertex[3] + (signMap[plane] * vertexBuffer1[vertexIndex].worldVertex[planeComponentMap[plane]]);
+						float t = dPrev / (dPrev - dCurr);
+						GTextureVertex intersectionVertex{
+							vertexBuffer1[previousVertexIndex].worldVertex + ((vertexBuffer1[vertexIndex].worldVertex - vertexBuffer1[previousVertexIndex].worldVertex) * t),
+							vertexBuffer1[previousVertexIndex].textureVertex + ((vertexBuffer1[vertexIndex].textureVertex - vertexBuffer1[previousVertexIndex].textureVertex) * t)
+						};
+						vertexBuffer2.push_back(intersectionVertex);
+						outCodesBuffer.push_back(computeOutCode(intersectionVertex.worldVertex));
+					}
+
+					if ((outCodes[vertexIndex] & planeBit) == 0) {
+						// Current vertex is inside the plane, so add it to the buffer
+
+						// Copy the current vertex
+						vertexBuffer2.push_back(vertexBuffer1[vertexIndex]);
+						outCodesBuffer.push_back(outCodes[vertexIndex]);
+					}
+				}
+
+				// Now we move onto the next plane, so we need to move and clear the buffers
+				vertexBuffer1 = vertexBuffer2; // Move the new vertices to the main buffer
+				outCodes = outCodesBuffer; // Move the new outcodes to the main buffer
+				vertexBuffer2.clear(); // Clear output buffer
+				outCodesBuffer.clear(); // Clear output buffer
+
+				// Verify that we still have >= 3 vertices to form a triangle, otherwise we can stop immediately
+				if (vertexBuffer1.size() < 3) {
+					break;
+				}
+			}
+
+			// We have our clipped polygon in vertexBuffer1 (unless we have <3 vertices)
+			if (vertexBuffer1.size() < 3) {
+				// Remove invisible triangle
+				polygons[i].removeTriangle(j);
+				oldTriangleAmount--;
+				continue;
+			} else {
+				// Remove original triangle and add the clipped polygon
+				polygons[i].removeTriangle(j);
+				oldTriangleAmount--;
+				polygons[i].appendConvexPolygon(vertexBuffer1);
+				continue;
+			}
+		}
+
+	}
+
 }
 
 void MainWindow::draw(std::unordered_map<uint32_t, std::vector<SDL_Vertex>> drawBatches) {

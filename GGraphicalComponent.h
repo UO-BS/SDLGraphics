@@ -13,6 +13,8 @@
 
     I use this convention: https://stackoverflow.com/questions/10094634/4x4-matrix-last-element-significance
     The corner 3x3 matrix is the rotation, and the 4th column is the position
+
+    TODO: Add visible flag 
 */ 
 
 class GGraphicalComponent

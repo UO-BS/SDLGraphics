@@ -30,3 +30,34 @@ GTexturePolygon& GTexturePolygon::applyTransformation(GMatrix<4,4> transformMatr
 
     return *this;
 }
+
+// std::move avoids copying the vertices vector to the function (it moves it over). We don't need it for anything after this anyway
+GTexturePolygon::GTexturePolygon(std::vector<GTextureVertex> vertices, uint32_t textureID) : textureID(textureID), triangles(convexPolygonToTriangles(std::move(vertices))) {}
+
+void GTexturePolygon::appendConvexPolygon(std::vector<GTextureVertex> vertices) {
+    std::vector<GTextureTriangle> newTriangles = convexPolygonToTriangles(std::move(vertices));
+    this->triangles.reserve(this->triangles.size() + newTriangles.size()); // Resize in advance to avoid re-allocation
+    this->triangles.insert(this->triangles.end(), newTriangles.begin(), newTriangles.end());
+}
+
+void GTexturePolygon::removeTriangle(size_t index) {
+    if (index < this->triangles.size()) {
+        std::swap(this->triangles[index], this->triangles.back());
+        triangles.pop_back();
+
+        // This method is slower but preserves the order of the triangles
+        //this->triangles.erase(this->triangles.begin() + index);
+    }
+}
+
+std::vector<GTextureTriangle> GTexturePolygon::convexPolygonToTriangles(std::vector<GTextureVertex> vertices) {
+    std::vector<GTextureTriangle> triangles;
+    for (size_t i=1;i<vertices.size()-1;i++) {
+        triangles.push_back(GTextureTriangle{{
+            vertices[0],
+            vertices[i],
+            vertices[i+1]
+        }});
+    }
+    return triangles;
+}

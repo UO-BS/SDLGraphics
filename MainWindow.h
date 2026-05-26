@@ -37,6 +37,8 @@ private:
 
     std::vector<GTexturePolygon> entityToClipSpace(std::vector<WorldObject> worldObjects, WorldObject cameraDetails);
 
+    void clipTriangles(std::vector<GTexturePolygon>& polygons);
+
     std::unordered_map<uint32_t, std::vector<SDL_Vertex>> clipSpaceToDrawBatch(std::vector<GTexturePolygon> clipSpacePolygons);
 
     void draw(std::unordered_map<uint32_t, std::vector<SDL_Vertex>> drawBatches);
@@ -48,6 +50,18 @@ private:
     SDL_Renderer* gRenderer = NULL;
 
     GTextureSet textureSet = GTextureSet();
+
+    uint8_t computeOutCode(GVector<4> vertex);
+    enum PlaneIndex: uint8_t {
+        NEAR_PLANE = 0 << 0, // 0b00001
+        LEFT_PLANE = 1 << 1, // 0b00010
+        RIGHT_PLANE = 1 << 2, // 0b00100
+        TOP_PLANE = 1 << 3, // 0b01000
+        BOTTOM_PLANE = 1 << 4, // 0b10000
+        FAR_PLANE = 1 << 5 // 0b100000
+    };
+    static constexpr int planeComponentMap[6] = {2,0,0,1,1,2}; 
+    static constexpr float signMap[6] = {1, 1, -1, -1, 1, -1};
 
 };
 

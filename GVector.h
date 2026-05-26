@@ -82,7 +82,7 @@ public:
         return result;
     }
 
-    GVector operator*(int o) const
+    GVector operator*(float o) const
     {
         GVector result{};
         for (int i=0;i<data.size();i++) {
